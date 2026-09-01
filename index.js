@@ -1,9 +1,12 @@
+//importar dependencia dotenv
+require("dotenv").config()
+
 // importación del paquete de express, tradicional (require)
 const express = require("express");
 
 // creación de mi aplicación de express
 const miApp = express();
-const miPuerto = 3333;
+const miPuerto = process.env.MIPUERTO || 3333
 
 // endpoint raíz, no tiene ruta
 miApp.get("/", (req, res) => {
