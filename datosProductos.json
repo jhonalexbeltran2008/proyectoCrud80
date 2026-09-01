@@ -1,0 +1,18 @@
+[
+  {
+    "di": 1,
+    "nombre": "Samsung S26 Ultra",
+    "precio": 6499900,
+    "stock": 3000,
+    "categoria": "Celulares",
+    "imagen": ""
+  },
+  {
+    "di": 2,
+    "nombre": "Samsung S26",
+    "precio": 5500000,
+    "stock": 36000,
+    "categoria": "Celulares",
+    "imagen": ""
+  }
+]
