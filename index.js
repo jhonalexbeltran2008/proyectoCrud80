@@ -1,154 +1,181 @@
 require("dotenv").config()
 
-// importación del paquete de express, tradicional (require)
-const express = require("express");
-const { error } = require("console");
-const sistemaArchivos = require("fs");
-const ruta = require("path")
-
-// creación de mi aplicación de express
-const miApp = express();
-const miPuerto = process.env.MIPUERTO || 3333
-
+const express = require("express")
+const app = express();
 //Configuracion de body-parse
-miApp.use(express.json())
-
+app.use(express.json())
+const sistemaArchivos = require("fs")
+const ruta = require("path")
+const multer = require("multer")
+const PORT = process.env.MIPUERTO || 3030;
 // Ruta archivo .json
 const rutaArchivoJson = ruta.join(__dirname, "datosProductos.json")
 
-// endpoint raíz, no tiene ruta
-miApp.get("/", (req, res) => {
-  res.send(`<h1>Api Rest Productos la 80</h1>`);
+// Carpeta donde se guardan las imagenes subidas
+const carpetaUploads = ruta.join(__dirname, "misImagenes")
+if (!sistemaArchivos.existsSync(carpetaUploads)) {
+  sistemaArchivos.mkdirSync(carpetaUploads)
+}
+
+// Configuracion de multer: guarda el archivo en /misImagenes con nombre unico
+const almacenamiento = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, carpetaUploads),
+  filename: (req, file, cb) => {
+    const nombreUnico = Date.now() + ruta.extname(file.originalname)
+    cb(null, nombreUnico)
+  }
+})
+const subirImagen = multer({ storage: almacenamiento })
+
+// Servir las imagenes de forma estatica en /misImagenes/nombreArchivo.jpg
+app.use("/misImagenes", express.static(carpetaUploads))
+
+// Validacion reutilizable
+function validarProducto(datosProducto) {
+  const { nombre, precio, stock, categoria, imagen } = datosProducto
+  if (typeof nombre !== "string" || nombre.trim() === "") return "nombre invalido."
+  if (typeof precio !== "number" || precio <= 0) return "precio invalido."
+  if (typeof stock !== "number" || !Number.isInteger(stock) || stock < 0) return "stock invalido."
+  if (typeof categoria !== "string" || categoria.trim() === "") return "categoria invalida."
+  if (imagen !== undefined && typeof imagen !== "string") return "imagen invalida."
+  return null
+}
+
+app.get("/", (req, res) => {
+     res.send(`<h1>Api Rest Productos la 80</h1>`);
 });
 
-// Listar todos los productos
-miApp.get("/api/productos", (req, res) => {
-  sistemaArchivos.readFile(rutaArchivoJson, "utf-8", (error, datos) => {
-    if (error) {
-      return res.status(500).json({ Error: "Error conexion db." })
-    }
-    const listaProductos = JSON.parse(datos)
-    res.json(listaProductos)
-  })
+// List crear endpoint
+app.get("/api/productos", (req, res) => {
+    sistemaArchivos.readFile(rutaArchivoJson, "utf-8", (error, datos) =>
+    {
+       if(error){
+          return res.status(500).json({Error: "Error conexion db."})
+       }
+       const listaProductos = JSON.parse(datos)
+       res.json(listaProductos)
+    })
 })
 
-// Obtener un producto por su ID
-miApp.get("/api/productos/:di", (req, res) => {
-  const diProducto = parseInt(req.params.di)
+// Endpoint para traer un producto por id
+app.get("/api/productos/:id", (req, res) => {
+  const idProducto = parseInt(req.params.id)
   sistemaArchivos.readFile(rutaArchivoJson, "utf-8", (error, datos) => {
-    if (error) {
-      return res.status(500).json({ Error: "Error conexion db." })
+    if (error){
+      return res.status(500).json({Error: "Error conexion db."})
     }
     const listaProductos = JSON.parse(datos)
-    const producto = listaProductos.find(p => p.di === diProducto)
-
-    if (!producto) {
-      return res.status(404).json({ Error: "Producto no encontrado." })
+    const producto = listaProductos.find(p => p.id === idProducto)
+    if (!producto){
+      return res.status(404).json({Error: "Producto no encontrado."})
     }
-
     res.status(200).json(producto)
   })
 })
 
-// Crear un producto (con validaciones)
-miApp.post("/api/productos", (req, res) => {
-  const datosProducto = req.body
-  const { nombre, precio, stock, categoria } = datosProducto
-
-  // Validaciones
-  if (nombre === undefined || nombre === "" ||
-      precio === undefined || precio === "" ||
-      stock === undefined || stock === "" ||
-      categoria === undefined || categoria === "") {
-    return res.status(400).json({ Error: "Bad Request: nombre, precio, stock y categoria son obligatorios." })
+//Endpoint para adicionar
+app.post("/api/productos", subirImagen.single("imagen"), (req,res)=>{
+  // con multipart/form-data, express deja precio y stock como strings en req.body
+  const datosProducto = {
+    ...req.body,
+    precio: req.body.precio !== undefined ? Number(req.body.precio) : req.body.precio,
+    stock: req.body.stock !== undefined ? Number(req.body.stock) : req.body.stock
   }
 
-  sistemaArchivos.readFile(rutaArchivoJson, "utf-8", (error, datos) => {
-    if (error) {
-      return res.status(500).json({ Error: "Error de conexion" })
+  const errorValidacion = validarProducto(datosProducto)
+  if (errorValidacion){
+    return res.status(400).json({Error: errorValidacion})
+  }
+
+  sistemaArchivos.readFile(rutaArchivoJson, "utf-8", (error, datos)=>{
+    if (error){
+      return res.json({Error: "Error de conexion"})
     }
 
     const listaProductos = JSON.parse(datos)
 
-    // Asignar imagen temporal
-    datosProducto.imagen = datosProducto.imagen || "sin imagen"
+    // Id autogenerado
+    const nuevoId = listaProductos.length > 0 ? Math.max(...listaProductos.map(p => p.id)) + 1 : 1
 
-    listaProductos.push(datosProducto)
-    sistemaArchivos.writeFile(rutaArchivoJson, JSON.stringify(listaProductos, null, 2), (error) => {
-      if (error) {
-        return res.status(500).json({ Error: "No se puede registrar." })
+    const productoNuevo = {
+      id: nuevoId,
+      nombre: datosProducto.nombre,
+      precio: datosProducto.precio,
+      stock: datosProducto.stock,
+      categoria: datosProducto.categoria,
+      // si llego un archivo, se guarda la ruta publica; si no, "sin imagen"
+      imagen: req.file ? `/misImagenes/${req.file.filename}` : "sin imagen"
+    }
+
+    listaProductos.push(productoNuevo)
+    sistemaArchivos.writeFile(rutaArchivoJson, JSON.stringify(listaProductos,null,2), (error)=>{
+      if (error){
+        return res.status(500).json({Error: "No se puede registrar."})
       }
-      res.status(201).json(datosProducto)
+      res.status(201).json(productoNuevo)
     })
   })
 })
 
-// Actualizar producto
-miApp.put("/api/productos/:di", (req, res) => {
-  const diProducto = parseInt(req.params.di)
+// Endpoint para editar
+app.put("/api/productos/:id", (req,res)=>{
+  const idProducto = parseInt(req.params.id)
   const datosProducto = req.body
-  const { nombre, precio, stock, categoria } = datosProducto
 
-  // Validaciones
-  if (nombre === undefined || nombre === "" ||
-      precio === undefined || precio === "" ||
-      stock === undefined || stock === "" ||
-      categoria === undefined || categoria === "") {
-    return res.status(400).json({ Error: "Bad Request: nombre, precio, stock y categoria son obligatorios." })
+  const errorValidacion = validarProducto(datosProducto)
+  if (errorValidacion){
+    return res.status(400).json({Error: errorValidacion})
   }
 
-  sistemaArchivos.readFile(rutaArchivoJson, "utf-8", (error, datos) => {
-    if (error) {
-      return res.status(500).json({ Error: "Error de conexion db." })
+  sistemaArchivos.readFile(rutaArchivoJson,  "utf-8", (error, datos)=>{
+    if (error){
+      return  res.status(500).json({Error: "Error de conexion db."})
     }
 
     let listaProductos = JSON.parse(datos)
-    const existe = listaProductos.some(p => p.di === diProducto)
-
-    if (!existe) {
-      return res.status(404).json({ Error: "Producto no encontrado." })
+    const existe = listaProductos.some(p => p.id === idProducto)
+    if (!existe){
+      return res.status(404).json({Error: "Producto no encontrado."})
     }
 
-    // Actualizar datos
+    // Actualizar datos (el id nunca se sobrescribe con el del body)
     listaProductos = listaProductos.map(producto => {
-      return producto.di === diProducto ? { ...producto, ...datosProducto } : producto
+      return producto.id === idProducto ? {...producto, ...datosProducto, id: idProducto} : producto
     })
 
     // Escritura de archivo
-    sistemaArchivos.writeFile(rutaArchivoJson, JSON.stringify(listaProductos, null, 2), (error) => {
-      if (error) {
-        return res.status(500).json({ Error: "No se puede editar." })
+    sistemaArchivos.writeFile(rutaArchivoJson, JSON.stringify(listaProductos,null,2), (error) =>{
+      if (error){
+        return res.json({Error: "No se puede editar."})
       }
-      res.status(200).json(datosProducto)
+      const productoActualizado = listaProductos.find(p => p.id === idProducto)
+      res.status(200).json(productoActualizado)
     })
   })
 })
 
-// Eliminar un producto por ID
-miApp.delete("/api/productos/:di", (req, res) => {
-  const diProducto = parseInt(req.params.di)
-
-  sistemaArchivos.readFile(rutaArchivoJson, "utf-8", (error, datos) => {
-    if (error) {
-      return res.status(500).json({ Error: "Error de conexion" })
+// Endpoint para eliminar
+app.delete("/api/productos/:id", (req, res) => {
+  const idProducto = parseInt(req.params.id)
+  sistemaArchivos.readFile(rutaArchivoJson, "utf-8", (error, datos)=>{
+    if (error){
+      return res.json({Error: "Error de conexion"})
     }
-
     const listaProductos = JSON.parse(datos)
-    const existe = listaProductos.some(p => p.di === diProducto)
-
-    if (!existe) {
-      return res.status(404).json({ Error: "Producto no encontrado." })
+    const existe = listaProductos.some(p => p.id === idProducto)
+    if (!existe){
+      return res.status(404).json({Error: "Producto no encontrado."})
     }
-
-    const listaFiltrada = listaProductos.filter(p => p.di !== diProducto)
-
-    sistemaArchivos.writeFile(rutaArchivoJson, JSON.stringify(listaFiltrada, null, 2), (error) => {
-      res.status(200).json({ Mensaje: "Producto eliminado." })
+    const listaFiltrada = listaProductos.filter(p => p.id !== idProducto)
+    sistemaArchivos.writeFile(rutaArchivoJson, JSON.stringify(listaFiltrada,null,2), (error)=>{
+      if (error){
+        return res.status(500).json({Error: "No se puede eliminar."})
+      }
+      res.status(200).json({Mensaje: "Producto eliminado."})
     })
   })
 })
 
-// Link del servidor
-miApp.listen(miPuerto, () => {
-  console.log(`SERVIDOR: http://localhost:${miPuerto}`);
+app.listen(PORT, () => {
+    console.log(`Servidor: http://localhost:${PORT}`);
 });

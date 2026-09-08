@@ -1,6 +1,6 @@
 [
   {
-    "di": 1,
+    "id": 1,
     "nombre": "Samsung S26 Ultra",
     "precio": 6499900,
     "stock": 3000,
@@ -8,11 +8,19 @@
     "imagen": ""
   },
   {
-    "di": 2,
+    "id": 2,
     "nombre": "Samsung S26",
     "precio": 5500000,
     "stock": 36000,
     "categoria": "Celulares",
     "imagen": ""
+  },
+  {
+    "id": 3,
+    "nombre": "iPhone 13",
+    "precio": 850000,
+    "stock": 10000,
+    "categoria": "Celulares",
+    "imagen": "/misImagenes/1788830542254.webp"
   }
 ]
