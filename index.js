@@ -2,14 +2,39 @@ require("dotenv").config()
 
 const express = require("express")
 const app = express();
+
+// IMPORTACION JSONWEBTOKEN
+const jswtoken = require("jsonwebtoken")
+
 //Configuracion de body-parse
 app.use(express.json())
 const sistemaArchivos = require("fs")
 const ruta = require("path")
 const multer = require("multer")
 const PORT = process.env.MIPUERTO || 3030;
+
 // Ruta archivo .json
 const rutaArchivoJson = ruta.join(__dirname, "datosProductos.json")
+
+// importar middlewares
+const manejoErrores = require("./middleware/manejoErrores")
+const registroMiddleware = require("./middleware/registroMiddleware")
+const autenticarToken = require("./middleware/autenticacion")
+
+//midleware
+app.use(registroMiddleware)
+app.use(manejoErrores)
+//app.use(autenticarToken)
+
+// Endpoint para probar autenticacion
+app.get("/rutapro", autenticarToken, (req, res) => {
+   res.json({ mensaje: "Ruta protegida.", usuario: req.aprendiz })
+})
+
+// Endpoint para provocar un error
+app.use("/error", (req, res, next) => {
+      next(new Error("Error provocado - intencional"))
+})
 
 // Carpeta donde se guardan las imagenes subidas
 const carpetaUploads = ruta.join(__dirname, "misImagenes")
@@ -179,3 +204,26 @@ app.delete("/api/productos/:id", (req, res) => {
 app.listen(PORT, () => {
     console.log(`Servidor: http://localhost:${PORT}`);
 });
+
+
+// # Endpoint para login
+app.post("/log", (req, res) => {
+  //capturar datos
+  const {usuario, clave} = req.body;    
+  //simular datos del usuario en una db
+  const datosUsuario = {
+    "usuarioBd": "Juan",
+    "clave": "AA23"
+  }
+  //Validar datos del usuario
+if (usuario !== datosUsuario.usuarioBd || clave !== datosUsuario.clave){
+  res.status(400).json({Mensaje: "Credenciales incorrectas."})
+}
+  // Generar y verificar 
+  const token = jswtoken.sign(
+    {usuario: usuario},
+    process.env.JWT_SECRET,
+    {expiresIn: "1h"}
+  )
+res.json(token)
+})
