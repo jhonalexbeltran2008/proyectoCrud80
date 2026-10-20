@@ -1,11 +1,13 @@
-const express = require("express");
-const router = express.Router();
-const {registrar, iniciarSesion, listarController} = require("../controllers/usuariosController");
-//const usuariosController = require("../controllers/usuariosController");
+const { Router } = require('express') 
+const {listarController, listarUnUsuario , crear, editar, eliminar} = require("../controllers/usuariosController");
 
-// Estas rutas son PÚBLICAS (no llevan el middleware de autenticación)
-router.post("/registro", registrar);
-router.post("/login", iniciarSesion);
+const router = Router();
+
+//router.post("/registro", registrar);
 router.get("/listado", listarController)
+router.get("/listar/:id", listarUnUsuario)
+router.post("/crear", crear)
+router.put("/editar", editar)
+router.delete("/eliminar", eliminar)
 
 module.exports = router;

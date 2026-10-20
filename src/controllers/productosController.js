@@ -1,5 +1,5 @@
 // const { listarProductos } =require("../models/ProductosModel.js");
-const { listar } = require("../models/ProductosModel")
+const { listar } = require("../modelService/ProductosModel")
 const listarProductos = async (req, res)=>{
     try {
     //Obtener listado de productos, utilizando el servicio
