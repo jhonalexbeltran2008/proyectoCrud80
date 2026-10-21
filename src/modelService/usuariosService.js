@@ -1,4 +1,4 @@
-const ormPrisma = require("../config/conexion");
+const ormPrisma = require("../config/conexion")
 
 const listarUsuarios = ()=>{
     const datos = ormPrisma.usuarios.findMany()

@@ -7,7 +7,7 @@ const router = Router();
 router.get("/listado", listarController)
 router.get("/listar/:id", listarUnUsuario)
 router.post("/crear", crear)
-router.put("/editar", editar)
-router.delete("/eliminar", eliminar)
+router.put("/editar/:id", editar)
+router.delete("/eliminar/:id", eliminar)
 
 module.exports = router;
